@@ -7,9 +7,6 @@ class EvalVisitor(CalcVisitor):
         self.memory = {}
 
     def visitProg(self, ctx: CalcParser.ProgContext):
-        return self.visit(ctx.stmt())
-
-    def visitExprOnly(self, ctx: CalcParser.ExprOnlyContext):
         return self.visit(ctx.expr())
 
     def visitAssign(self, ctx: CalcParser.AssignContext):

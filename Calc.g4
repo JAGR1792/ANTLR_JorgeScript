@@ -1,14 +1,10 @@
 grammar Calc;
 
-prog : stmt EOF ;
-
-stmt
-    : ID '=' expr   # Assign
-    | expr          # ExprOnly
-    ;
+prog : expr EOF ;
 
 expr
-    : expr '+' term   # Add
+    : ID '=' expr     # Assign
+    | expr '+' term   # Add
     | expr '-' term   # Sub
     | term            # ToTerm
     ;
