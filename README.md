@@ -17,9 +17,7 @@ Incluye:
 
 - `MICELIO/`: implementacion del lenguaje
 - `MICELIO/modulos_std/`: modulos del lenguaje en archivos `.mice`
-- `micelio-vscode/`: extension de sintaxis para VS Code
-- `main.tex`: especificacion tecnica del lenguaje
-- `Pruebas/`: carpeta historica de pruebas
+- `README.md`: guia de uso del proyecto
 
 ## Requisitos
 
@@ -81,38 +79,7 @@ Tambien existe alias:
 
 - `texto.split(...)`
 
-## Sintaxis de Micelio en VS Code
-
-Se creo una extension local para coloreado de sintaxis:
-
-- Carpeta: `micelio-vscode/`
-- Paquete VSIX: `micelio-vscode/micelio-syntax-0.0.1.vsix`
-
-### Instalar la sintaxis
-
-Opcion 1: instalacion directa del `.vsix`
-
-```bash
-code --install-extension micelio-vscode/micelio-syntax-0.0.1.vsix --force
-```
-
-Opcion 2: instalar desde release de GitHub
-
-- Release: `Micelio Syntax v0.0.1`
-- Descarga el `.vsix` y ejecuta:
-
-```bash
-code --install-extension micelio-syntax-0.0.1.vsix --force
-```
-
-### Asociacion de archivos
-
-Ya incluida en `.vscode/settings.json`:
-
-- `*.mice` -> `micelio`
-- `*.micelio` -> `micelio`
-
 ## Notas
 
-- Este repositorio prioriza el desarrollo del lenguaje (`MICELIO`) sobre tooling adicional.
-- La extension de VS Code esta en estado "minimo util" para mejorar ergonomia de desarrollo.
+- La rama `main` se mantiene enfocada en el lenguaje MICELIO funcional.
+- El tooling/editor (sintaxis de VS Code) vive en la rama `tooling/vscode-syntax`.
