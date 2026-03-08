@@ -2,8 +2,13 @@
   "name": "micelio-syntax",
   "displayName": "Micelio Syntax",
   "description": "Syntax highlighting and language configuration for Micelio (.mice)",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "publisher": "micelio-local",
+  "main": "./extension.js",
+  "activationEvents": [
+    "onLanguage:micelio",
+    "onCommand:micelio.enterPipe"
+  ],
   "engines": {
     "vscode": "^1.85.0"
   },
@@ -11,6 +16,19 @@
     "Programming Languages"
   ],
   "contributes": {
+    "commands": [
+      {
+        "command": "micelio.enterPipe",
+        "title": "Micelio: Enter Pipe"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "micelio.enterPipe",
+        "key": "enter",
+        "when": "editorTextFocus && editorLangId == micelio && !editorReadonly && !suggestWidgetVisible && !inSnippetMode"
+      }
+    ],
     "languages": [
       {
         "id": "micelio",

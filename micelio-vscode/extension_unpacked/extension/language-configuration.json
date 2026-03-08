@@ -58,15 +58,7 @@
   ],
   "onEnterRules": [
     {
-      "beforeText": "^\\s*.*\\|>.*$",
-      "action": {
-        "indentAction": "none",
-        "appendText": "|> "
-      }
-    },
-    {
-      "beforeText": "^\\s*$",
-      "previousLineText": "^\\s*.*\\|>.*[,;]\\s*$",
+      "beforeText": "^\\s*\\|>.*$",
       "action": {
         "indentAction": "none",
         "appendText": "|> "
