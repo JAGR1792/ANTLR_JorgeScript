@@ -209,6 +209,17 @@ class EvalVisitor(MicelioVisitor):
         return result
 
     def visitStatement(self, ctx: MicelioParser.StatementContext):
+        simple = ctx.simple_stmt()
+        if simple and simple.expr():
+            expr_ctx = simple.expr()
+            value = self.visit(expr_ctx)
+            if isinstance(expr_ctx, MicelioParser.PipeExprContext):
+                print(
+                    "Aviso pedagogico: bro, asi no funciona. "
+                    "La tuberia `|>` devuelve un valor nuevo; asignalo, por ejemplo: "
+                    "datos = datos |> ..."
+                )
+            return value
         return self.visitChildren(ctx)
 
     def visitVar_decl(self, ctx: MicelioParser.Var_declContext):

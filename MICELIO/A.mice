@@ -1,8 +1,10 @@
 
-	
 
-    
-    
+var a = [1, 2, 3] 
+var datos=a
 
-    
+datos = datos
+  |> map(funcion (x) { regresa x *2 })
+   
 
+imp datos

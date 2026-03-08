@@ -55,5 +55,14 @@
       "\"",
       "\""
     ]
+  ],
+  "onEnterRules": [
+    {
+      "beforeText": "^\\s*\\|>.*$",
+      "action": {
+        "indentAction": "none",
+        "appendText": "|> "
+      }
+    }
   ]
 }

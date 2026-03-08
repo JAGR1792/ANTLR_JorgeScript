@@ -1,0 +1,10 @@
+{
+  "files.associations": {
+    "*.mice": "micelio",
+    "*.micelio": "micelio"
+  },
+  "editor.autoIndent": "full",
+  "[micelio]": {
+    "editor.autoIndent": "full"
+  }
+}
