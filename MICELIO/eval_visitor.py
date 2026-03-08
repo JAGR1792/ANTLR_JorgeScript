@@ -35,6 +35,31 @@ class EvalVisitor(MicelioVisitor):
         self.loaded_modules: dict[str, dict[str, object]] = {}
         builtins = make_builtins()
 
+        def _parse_input_atom(raw: str):
+            value = raw
+            try:
+                value = float(raw) if "." in raw else int(raw)
+            except ValueError:
+                low = raw.strip().lower()
+                if low == "verdadero":
+                    value = True
+                elif low == "falso":
+                    value = False
+                elif low == "nulo":
+                    value = None
+            return value
+
+        def _ensure_unpack_values(values, count: int):
+            if not isinstance(values, (list, tuple)):
+                raise MicelioRuntimeError(
+                    "Desempaquetado requiere lista o tupla"
+                )
+            if len(values) != count:
+                raise MicelioRuntimeError(
+                    "Cantidad de valores no coincide con cantidad de variables en desempaquetado"
+                )
+            return values
+
         def _map(fn, iterable):
             return [self._call_callable(fn, [x]) for x in iterable]
 
@@ -47,9 +72,31 @@ class EvalVisitor(MicelioVisitor):
                 acc = self._call_callable(fn, [acc, x])
             return acc
 
+        def _asignar_multi(names_csv, values):
+            names = [n.strip() for n in str(names_csv).split(",") if n.strip()]
+            unpacked = _ensure_unpack_values(values, len(names))
+            for name, item in zip(names, unpacked):
+                self.env.assign(name, item)
+            return unpacked
+
+        def _leer_multi(names_csv):
+            names = [n.strip() for n in str(names_csv).split(",") if n.strip()]
+            raw = input()
+            parts = raw.split()
+            if len(parts) != len(names):
+                raise MicelioRuntimeError(
+                    "Cantidad de entradas no coincide con variables en leer multiple"
+                )
+            parsed = [_parse_input_atom(p) for p in parts]
+            for name, item in zip(names, parsed):
+                self._assign_or_define(name, item)
+            return parsed
+
         builtins["map"] = _map
         builtins["filter"] = _filter
         builtins["reduce"] = _reduce
+        builtins["__asignar_multi"] = _asignar_multi
+        builtins["__leer_multi"] = _leer_multi
 
         if "lista" in self.modules:
             self.modules["lista"]["map"] = _map
@@ -175,6 +222,21 @@ class EvalVisitor(MicelioVisitor):
 
         if len(expr_nodes) == 1:
             value = self.visit(expr_nodes[0])
+
+          
+            if len(names) > 1:
+                if not isinstance(value, (list, tuple)):
+                    raise MicelioRuntimeError(
+                        "Desempaquetado requiere lista o tupla en declaracion multiple"
+                    )
+                if len(value) != len(names):
+                    raise MicelioRuntimeError(
+                        "Cantidad de valores no coincide con cantidad de variables en desempaquetado"
+                    )
+                for name, item in zip(names, value):
+                    self.env.define(name, item)
+                return value
+
             for name in names:
                 self.env.define(name, value)
             return value
@@ -251,14 +313,14 @@ class EvalVisitor(MicelioVisitor):
         raw = input()
         value = raw
         try:
-            value = float(raw) if '.' in raw else int(raw)
+            value = float(raw) if "." in raw else int(raw)
         except ValueError:
             low = raw.strip().lower()
-            if low == 'verdadero':
+            if low == "verdadero":
                 value = True
-            elif low == 'falso':
+            elif low == "falso":
                 value = False
-            elif low == 'nulo':
+            elif low == "nulo":
                 value = None
         self._assign_or_define(name, value)
         return value

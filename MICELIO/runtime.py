@@ -314,4 +314,12 @@ def micelio_repr(value: Any) -> str:
     if isinstance(value, dict):
         items = [f"{micelio_repr(k)}: {micelio_repr(v)}" for k, v in value.items()]
         return "{" + ", ".join(items) + "}"
+    if isinstance(value, str):
+        escaped = (
+            value.replace("\\", "\\\\")
+            .replace('"', '\\"')
+            .replace("\n", "\\n")
+            .replace("\t", "\\t")
+        )
+        return f'"{escaped}"'
     return str(value)
