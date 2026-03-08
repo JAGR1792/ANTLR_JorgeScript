@@ -1,0 +1,244 @@
+# Modulo Math para Micelio
+
+
+const PI = 3.141592653589793
+const E = 2.718281828459045
+
+funcion abs(x) {
+    si (x < 0) {
+        regresa -x
+    }
+    regresa x
+}
+
+funcion piso(x) {
+    var n = 0
+    si (x >= 0) {
+        mientras ((n + 1) <= x) {
+            n = n + 1
+        }
+        regresa n
+    }
+
+    # x negativo
+    mientras (n > x) {
+        n = n - 1
+    }
+    regresa n
+}
+
+funcion techo(x) {
+    var p = piso(x)
+    si (p == x) {
+        regresa p
+    }
+    regresa p + 1
+}
+
+funcion redondear(x) {
+    si (x >= 0) {
+        regresa piso(x + 0.5)
+    }
+    regresa techo(x - 0.5)
+}
+
+funcion potencia_entera(base, exp) {
+    si (exp == 0) {
+        regresa 1
+    }
+
+    var e = exp
+    var b = base
+    var res = 1
+
+    si (e < 0) {
+        e = -e
+        mientras (e > 0) {
+            res = res * b
+            e = e - 1
+        }
+        regresa 1 / res
+    }
+
+    mientras (e > 0) {
+        res = res * b
+        e = e - 1
+    }
+    regresa res
+}
+
+funcion normalizar_angulo(x) {
+    var dospi = 2 * PI
+    var ang = x
+    mientras (ang > PI) {
+        ang = ang - dospi
+    }
+    mientras (ang < -PI) {
+        ang = ang + dospi
+    }
+    regresa ang
+}
+
+funcion exp(x) {
+    var suma = 1
+    var termino = 1
+    var n = 1
+
+    mientras (n <= 30) {
+        termino = termino * x / n
+        suma = suma + termino
+        n = n + 1
+    }
+    regresa suma
+}
+
+funcion log(x) {
+    si (x <= 0) {
+        imp "Error: log(x) requiere x > 0"
+        regresa nulo
+    }
+
+    # Serie de atanh: ln(x) = 2 * (z + z^3/3 + z^5/5 + ...), z=(x-1)/(x+1)
+    var z = (x - 1) / (x + 1)
+    var z2 = z * z
+    var termino = z
+    var suma = 0
+    var k = 1
+
+    mientras (k <= 99) {
+        suma = suma + (termino / k)
+        termino = termino * z2
+        k = k + 2
+    }
+
+    regresa 2 * suma
+}
+
+funcion log10(x) {
+    regresa log(x) / log(10)
+}
+
+funcion raiz(x) {
+    si (x < 0) {
+        imp "Error: raiz(x) no acepta negativos"
+        regresa nulo
+    }
+    si (x == 0) {
+        regresa 0
+    }
+
+    var aprox = x
+    var i = 0
+    mientras (i < 30) {
+        aprox = 0.5 * (aprox + (x / aprox))
+        i = i + 1
+    }
+    regresa aprox
+}
+
+funcion seno(x) {
+    var ang = normalizar_angulo(x)
+    var suma = ang
+    var termino = ang
+    var n = 1
+
+    mientras (n <= 12) {
+        var a = 2 * n
+        var b = 2 * n + 1
+        termino = -termino * ang * ang / (a * b)
+        suma = suma + termino
+        n = n + 1
+    }
+    regresa suma
+}
+
+funcion coseno(x) {
+    var ang = normalizar_angulo(x)
+    var suma = 1
+    var termino = 1
+    var n = 1
+
+    mientras (n <= 12) {
+        var a = 2 * n - 1
+        var b = 2 * n
+        termino = -termino * ang * ang / (a * b)
+        suma = suma + termino
+        n = n + 1
+    }
+    regresa suma
+}
+
+funcion tangente(x) {
+    var c = coseno(x)
+    si (abs(c) < 0.000000000001) {
+        imp "Error: tangente indefinida para este valor"
+        regresa nulo
+    }
+    regresa seno(x) / c
+}
+
+funcion arcotangente(x) {
+    # Para |x| <= 1 usa serie; para |x| > 1 usa identidad
+    si (abs(x) <= 1) {
+        var suma = 0
+        var termino = x
+        var k = 1
+        var signo = 1
+
+        mientras (k <= 101) {
+            suma = suma + (signo * termino / k)
+            termino = termino * x * x
+            signo = -signo
+            k = k + 2
+        }
+        regresa suma
+    }
+
+    si (x > 0) {
+        regresa (PI / 2) - arcotangente(1 / x)
+    }
+    regresa -(PI / 2) - arcotangente(1 / x)
+}
+
+funcion arcoseno(x) {
+    si (x < -1 o x > 1) {
+        imp "Error: arcoseno(x) requiere x en [-1, 1]"
+        regresa nulo
+    }
+
+    # Newton-Raphson sobre f(y)=seno(y)-x
+    var ang = x
+    var i = 0
+    mientras (i < 20) {
+        var sy = seno(ang)
+        var cy = coseno(ang)
+        si (abs(cy) < 0.000000000001) {
+            regresa ang
+        }
+        ang = ang - ((sy - x) / cy)
+        i = i + 1
+    }
+    regresa ang
+}
+
+funcion arcocoseno(x) {
+    si (x < -1 o x > 1) {
+        imp "Error: arcocoseno(x) requiere x en [-1, 1]"
+        regresa nulo
+    }
+    regresa (PI / 2) - arcoseno(x)
+}
+
+funcion potencia(x, exponente) {
+    var yi = piso(exponente)
+    si (yi == exponente) {
+        regresa potencia_entera(x, yi)
+    }
+
+    si (x <= 0) {
+        imp "Error: potencia(x,exponente) con exponente real requiere x > 0"
+        regresa nulo
+    }
+
+    regresa exp(exponente * log(x))
+}

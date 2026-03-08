@@ -136,6 +136,12 @@ class BoundMethod:
                 if args:
                     raise MicelioRuntimeError("longitud() no recibe argumentos")
                 return len(self.obj)
+            if self.name in ("separar", "split"):
+                if len(args) > 1:
+                    raise MicelioRuntimeError("separar() recibe 0 o 1 argumento")
+                if len(args) == 0:
+                    return self.obj.split()
+                return self.obj.split(str(args[0]))
 
         raise MicelioRuntimeError(f"Metodo '{self.name}' no soportado para {type(self.obj).__name__}")
 
