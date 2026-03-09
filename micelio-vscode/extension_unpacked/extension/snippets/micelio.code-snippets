@@ -28,14 +28,22 @@
     ],
     "description": "Inserta un tramo reduce para una tuberia |>"
   },
+  "Pipe: ordenar": {
+    "prefix": "pipe_ordenar",
+    "body": [
+      "|> ordenar()"
+    ],
+    "description": "Inserta un tramo ordenar para una tuberia |>"
+  },
   "Pipe: cadena completa": {
     "prefix": "pipe_chain",
     "body": [
       "${1:datos}",
       "  |> map(funcion (${2:x}) { regresa ${3:x} })",
       "  |> filter(funcion (${2:x}) { regresa ${4:verdadero} })",
+      "  |> ordenar()",
       "  |> reduce(funcion (${5:acc}, ${2:x}) { regresa ${6:acc + x} }, ${7:0})"
     ],
-    "description": "Inserta plantilla map/filter/reduce con |>"
+    "description": "Inserta plantilla map/filter/ordenar/reduce con |>"
   }
 }

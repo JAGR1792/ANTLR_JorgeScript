@@ -7,7 +7,7 @@ Lenguaje de programacion DLS, con enfoque didactico, funcional y orientado a evo
 Micelio busca ser un lenguaje en español que no sea solo "Python traducido", sino una experiencia propia:
 
 - Sintaxis clara para aprender fundamentos de programacion.
-- Soporte funcional (map/filter/reduce + pipe `|>`).
+- Soporte funcional (map/filter/reduce/ordenar + pipe `|>`).
 - Mensajes de error pedagogicos (que paso, por que, como arreglarlo).
 - Camino de crecimiento hacia modulos de algebra, estadistica y ML.
 

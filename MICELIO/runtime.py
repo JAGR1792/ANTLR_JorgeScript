@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from fractions import Fraction
 from functools import reduce as py_reduce
 from typing import Any, Callable
 
@@ -37,21 +38,22 @@ class Environment:
             self.constants.add(name)
 
     def get(self, name: str) -> Any:
-        if name in self.values:
-            return self.values[name]
-        if self.parent:
-            return self.parent.get(name)
+        env: Environment | None = self
+        while env is not None:
+            if name in env.values:
+                return env.values[name]
+            env = env.parent
         raise MicelioRuntimeError(f"Variable '{name}' no definida")
 
     def assign(self, name: str, value: Any) -> None:
-        if name in self.values:
-            if name in self.constants:
-                raise MicelioRuntimeError(f"No se puede reasignar la constante '{name}'")
-            self.values[name] = value
-            return
-        if self.parent:
-            self.parent.assign(name, value)
-            return
+        env: Environment | None = self
+        while env is not None:
+            if name in env.values:
+                if name in env.constants:
+                    raise MicelioRuntimeError(f"No se puede reasignar la constante '{name}'")
+                env.values[name] = value
+                return
+            env = env.parent
         raise MicelioRuntimeError(f"Variable '{name}' no definida")
 
 
@@ -202,6 +204,97 @@ def to_bool(value: Any) -> bool:
     return bool(value)
 
 
+def to_int(value: Any, base: int = 10) -> int:
+    return int(to_number(value, base=base))
+
+
+def to_float(value: Any, base: int = 10) -> float:
+    return float(to_number(value, base=base))
+
+
+def to_char(value: Any) -> str:
+    code = int(to_number(value))
+    try:
+        return chr(code)
+    except ValueError as exc:
+        raise MicelioRuntimeError("aCaracter() requiere un codigo Unicode valido") from exc
+
+
+def to_code(value: Any) -> int:
+    txt = str(value)
+    if len(txt) != 1:
+        raise MicelioRuntimeError("aCodigo() requiere exactamente un caracter")
+    return ord(txt)
+
+
+def to_base_with_digits(n: int, digits: str) -> str:
+    if len(digits) < 2:
+        raise MicelioRuntimeError("aBaseConDigitos() requiere al menos 2 digitos")
+    if len(set(digits)) != len(digits):
+        raise MicelioRuntimeError("aBaseConDigitos() requiere digitos unicos")
+    base = len(digits)
+    if n == 0:
+        return digits[0]
+    neg = n < 0
+    n = abs(n)
+    out = []
+    while n > 0:
+        out.append(digits[n % base])
+        n //= base
+    rep = "".join(reversed(out))
+    return f"-{rep}" if neg else rep
+
+
+def to_base_complement(n: int, base: int, bits: int, uppercase: bool = False) -> str:
+    if bits <= 0:
+        raise MicelioRuntimeError("aBaseComplemento() requiere bits > 0")
+    min_val = -(2 ** (bits - 1))
+    max_val = 2 ** (bits - 1) - 1
+    if n < min_val or n > max_val:
+        raise MicelioRuntimeError(
+            "aBaseComplemento(): numero fuera de rango para el ancho de bits dado"
+        )
+    unsigned = n if n >= 0 else (2 ** bits + n)
+    if base == 2:
+        return format(unsigned, f"0{bits}b")
+    return int_to_base(unsigned, base, uppercase=uppercase)
+
+
+def to_base_fraction(number: Any, base: int, precision: int, uppercase: bool = False) -> str:
+    if not (2 <= base <= 36):
+        raise MicelioRuntimeError("aBaseFraccion(): la base debe estar entre 2 y 36")
+    if precision < 0:
+        raise MicelioRuntimeError("aBaseFraccion(): precision debe ser >= 0")
+
+    num = to_number(number)
+    neg = num < 0
+    frac_num = Fraction(str(abs(num)))
+    int_part = int(frac_num)
+    frac_part = frac_num - int_part
+
+    int_txt = int_to_base(int_part, base, uppercase=uppercase)
+    if precision == 0:
+        return f"-{int_txt}" if neg else int_txt
+    if frac_part == 0:
+        return f"-{int_txt}" if neg else int_txt
+
+    symbols = "0123456789abcdefghijklmnopqrstuvwxyz"
+    if uppercase:
+        symbols = symbols.upper()
+
+    out_frac: list[str] = []
+    for _ in range(precision):
+        frac_part *= base
+        digit = int(frac_part)
+        out_frac.append(symbols[digit])
+        frac_part -= digit
+        if frac_part == 0:
+            break
+
+    rep = int_txt + "." + "".join(out_frac)
+    return f"-{rep}" if neg else rep
+
+
 def matrix_mul(a: list[list[Any]], b: list[list[Any]]) -> list[list[float]]:
     if not a or not b:
         return []
@@ -220,6 +313,8 @@ def matrix_mul(a: list[list[Any]], b: list[list[Any]]) -> list[list[float]]:
             row.append(total)
         out.append(row)
     return out
+
+
 
 
 def elementwise_mul(left: Any, right: Any) -> Any:
@@ -242,6 +337,16 @@ def make_builtins() -> dict[str, Any]:
     def _reduce(fn: Callable[..., Any], iterable: list[Any], initial: Any) -> Any:
         return py_reduce(fn, iterable, initial)
 
+    def _ordenar(iterable: Any) -> list[Any]:
+        if not isinstance(iterable, list):
+            raise MicelioRuntimeError("ordenar() requiere una lista")
+        try:
+            return sorted(iterable)
+        except TypeError as exc:
+            raise MicelioRuntimeError(
+                "ordenar() requiere elementos comparables entre si"
+            ) from exc
+
     def _a_binario(n: Any) -> str:
         return int_to_base(int(to_number(n)), 2)
 
@@ -257,18 +362,46 @@ def make_builtins() -> dict[str, Any]:
     def _desde_base(texto: Any, base: Any) -> float:
         return float(int(str(texto), int(to_number(base))))
 
+    def _a_base_complemento(n: Any, base: Any, bits: Any) -> str:
+        return to_base_complement(
+            int(to_number(n)),
+            int(to_number(base)),
+            int(to_number(bits)),
+        )
+
+    def _a_base_fraccion(numero: Any, base: Any, precision: Any) -> str:
+        return to_base_fraction(
+            numero,
+            int(to_number(base)),
+            int(to_number(precision)),
+        )
+
+    def _a_base_con_digitos(numero: Any, digitos: Any) -> str:
+        return to_base_with_digits(int(to_number(numero)), str(digitos))
+
     return {
         "map": _map,
         "filter": _filter,
         "reduce": _reduce,
+        "ordenar": _ordenar,
         "longitud": lambda x: len(x),
         "aNumero": to_number,
+        "aEntero": to_int,
+        "aFlotante": to_float,
         "aTexto": to_text,
         "aBooleano": to_bool,
+        "aCaracter": to_char,
+        "aCodigo": to_code,
         "aBinario": _a_binario,
         "aOctal": _a_octal,
         "aHexadecimal": _a_hexadecimal,
         "aBase": _a_base,
+        "aBaseComplemento": _a_base_complemento,
+        "aBasecomplemento": _a_base_complemento,
+        "aBaseFraccion": _a_base_fraccion,
+        "aBasefraccion": _a_base_fraccion,
+        "aBaseConDigitos": _a_base_con_digitos,
+        "aBaseCondigitos": _a_base_con_digitos,
         "desdeBinario": lambda txt: _desde_base(txt, 2),
         "desdeOctal": lambda txt: _desde_base(txt, 8),
         "desdeHexadecimal": lambda txt: _desde_base(txt, 16),
@@ -281,12 +414,19 @@ def module_table() -> dict[str, dict[str, Any]]:
     return {
         "convert": {
             "aNumero": builtins["aNumero"],
+            "aEntero": builtins["aEntero"],
+            "aFlotante": builtins["aFlotante"],
             "aTexto": builtins["aTexto"],
             "aBooleano": builtins["aBooleano"],
+            "aCaracter": builtins["aCaracter"],
+            "aCodigo": builtins["aCodigo"],
             "aBinario": builtins["aBinario"],
             "aOctal": builtins["aOctal"],
             "aHexadecimal": builtins["aHexadecimal"],
             "aBase": builtins["aBase"],
+            "aBaseComplemento": builtins["aBaseComplemento"],
+            "aBaseFraccion": builtins["aBaseFraccion"],
+            "aBaseConDigitos": builtins["aBaseConDigitos"],
             "desdeBinario": builtins["desdeBinario"],
             "desdeOctal": builtins["desdeOctal"],
             "desdeHexadecimal": builtins["desdeHexadecimal"],
@@ -296,6 +436,7 @@ def module_table() -> dict[str, dict[str, Any]]:
             "map": builtins["map"],
             "filter": builtins["filter"],
             "reduce": builtins["reduce"],
+            "ordenar": builtins["ordenar"],
         },
     }
 

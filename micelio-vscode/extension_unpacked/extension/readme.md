@@ -9,13 +9,14 @@ This folder contains a local VS Code language extension for Micelio.
 - Bracket and quote auto-closing
 - Syntax highlighting for:
   - Keywords (`var`, `const`, `funcion`, `si`, `mientras`, etc.)
-  - Builtins (`imp`, `leer`, `map`, `filter`, `reduce`, conversiones y bases)
+  - Builtins (`imp`, `leer`, `map`, `filter`, `reduce`, `ordenar`, conversiones y bases)
   - Booleans and null (`verdadero`, `falso`, `nulo`)
   - Strings, numbers, operators, and function names
 - Snippets for pipe composition (`|>`):
   - `pipe`
   - `pipe_map`
   - `pipe_filter`
+  - `pipe_ordenar`
   - `pipe_reduce`
   - `pipe_chain`
 - Auto pipe continuation on `Enter`:
@@ -44,7 +45,7 @@ Option A (recommended, portable `.vsix`):
 ```bash
 cd micelio-vscode
 ./build-vsix.sh
-code --install-extension micelio-syntax-0.0.5.vsix
+code --install-extension micelio-syntax-0.0.6.vsix
 ```
 
 Option B (quick local install from folder):

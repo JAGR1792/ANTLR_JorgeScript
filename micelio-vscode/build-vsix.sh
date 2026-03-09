@@ -14,8 +14,8 @@ if ! command -v npx >/dev/null 2>&1; then
   exit 1
 fi
 
-cd "$ROOT_DIR"
+cd "$EXT_DIR"
 # Empaqueta la extension en un .vsix portable para instalar en cualquier PC.
-npx --yes @vscode/vsce package "$EXT_DIR"
+npx --yes @vscode/vsce package --allow-missing-repository --skip-license
 
 echo "Listo. Instala el .vsix con: code --install-extension <archivo.vsix>"

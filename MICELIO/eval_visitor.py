@@ -30,6 +30,8 @@ class EvalVisitor(MicelioVisitor):
         super().__init__()
         self.global_env = Environment()
         self.env = self.global_env
+        self._id_env_cache: dict[int, Environment] = {}
+        self._assign_env_cache: dict[int, Environment] = {}
         self.modules = module_table()
         self.current_dir = os.path.abspath(base_dir or os.getcwd())
         self.loaded_modules: dict[str, dict[str, object]] = {}
@@ -143,11 +145,30 @@ class EvalVisitor(MicelioVisitor):
         finally:
             self.env = saved
 
+    def _resolve_env_for_name(self, name: str) -> Environment | None:
+        env = self.env
+        while env is not None:
+            if name in env.values:
+                return env
+            env = env.parent
+        return None
+
+    def _is_env_visible(self, candidate: Environment | None) -> bool:
+        env = self.env
+        while env is not None:
+            if env is candidate:
+                return True
+            env = env.parent
+        return False
+
     def _assign_or_define(self, name: str, value):
-        try:
-            self.env.assign(name, value)
-        except MicelioRuntimeError:
+        target_env = self._resolve_env_for_name(name)
+        if target_env is None:
             self.env.define(name, value)
+            return
+        if name in target_env.constants:
+            raise MicelioRuntimeError(f"No se puede reasignar la constante '{name}'")
+        target_env.values[name] = value
 
     def _ensure_number(self, value, op: str):
         if not isinstance(value, (int, float)):
@@ -201,11 +222,35 @@ class EvalVisitor(MicelioVisitor):
             return raw[1:-1]
         return value if isinstance(value, str) else str(value)
 
+    def _block_needs_scope(self, block_ctx: MicelioParser.BlockContext) -> bool:
+        for st in block_ctx.statement():
+            simple = st.simple_stmt()
+            if simple is not None:
+                if simple.var_decl() is not None:
+                    return True
+                if simple.const_decl() is not None:
+                    return True
+                if simple.import_stmt() is not None:
+                    return True
+                if simple.leer_stmt() is not None:
+                    return True
+
+            compound = st.compound_stmt()
+            if compound is not None and compound.func_def() is not None:
+                return True
+
+        return False
+
+    def _exec_block_body_no_scope(self, block_ctx: MicelioParser.BlockContext):
+        result = None
+        for st in block_ctx.statement():
+            result = self.visit(st)
+        return result
+
     def visitProgram(self, ctx: MicelioParser.ProgramContext):
         result = None
-        for child in ctx.children:
-            if isinstance(child, MicelioParser.StatementContext):
-                result = self.visit(child)
+        for st in ctx.statement():
+            result = self.visit(st)
         return result
 
     def visitStatement(self, ctx: MicelioParser.StatementContext):
@@ -214,13 +259,93 @@ class EvalVisitor(MicelioVisitor):
             expr_ctx = simple.expr()
             value = self.visit(expr_ctx)
             if isinstance(expr_ctx, MicelioParser.PipeExprContext):
+                line = expr_ctx.start.line if getattr(expr_ctx, "start", None) else "?"
                 print(
-                    "Aviso pedagogico: bro, asi no funciona. "
-                    "La tuberia `|>` devuelve un valor nuevo; asignalo, por ejemplo: "
-                    "datos = datos |> ..."
+                    f"[WARNING pedagogico] linea {line}: "
+                    "la tuberia `|>` no modifica la variable original por si sola. "
+                    "Haz asignacion explicita, por ejemplo: " "\n"
+                    "`datos = datos" "\n" "   |> map(funcion (x) { regresa x * 2 })`."
+                    "\n""\n"
                 )
             return value
-        return self.visitChildren(ctx)
+        if simple is not None:
+            return self.visit(simple)
+
+        compound = ctx.compound_stmt()
+        if compound is not None:
+            return self.visit(compound)
+
+        return None
+
+    def visitSimple_stmt(self, ctx: MicelioParser.Simple_stmtContext):
+        var_decl = ctx.var_decl()
+        if var_decl is not None:
+            return self.visit(var_decl)
+
+        const_decl = ctx.const_decl()
+        if const_decl is not None:
+            return self.visit(const_decl)
+
+        assignment = ctx.assignment()
+        if assignment is not None:
+            return self.visit(assignment)
+
+        return_stmt = ctx.return_stmt()
+        if return_stmt is not None:
+            return self.visit(return_stmt)
+
+        break_stmt = ctx.break_stmt()
+        if break_stmt is not None:
+            return self.visit(break_stmt)
+
+        continue_stmt = ctx.continue_stmt()
+        if continue_stmt is not None:
+            return self.visit(continue_stmt)
+
+        import_stmt = ctx.import_stmt()
+        if import_stmt is not None:
+            return self.visit(import_stmt)
+
+        leer_stmt = ctx.leer_stmt()
+        if leer_stmt is not None:
+            return self.visit(leer_stmt)
+
+        imp_stmt = ctx.imp_stmt()
+        if imp_stmt is not None:
+            return self.visit(imp_stmt)
+
+        expr = ctx.expr()
+        if expr is not None:
+            return self.visit(expr)
+
+        return None
+
+    def visitCompound_stmt(self, ctx: MicelioParser.Compound_stmtContext):
+        if_stmt = ctx.if_stmt()
+        if if_stmt is not None:
+            return self.visit(if_stmt)
+
+        switch_stmt = ctx.switch_stmt()
+        if switch_stmt is not None:
+            return self.visit(switch_stmt)
+
+        while_stmt = ctx.while_stmt()
+        if while_stmt is not None:
+            return self.visit(while_stmt)
+
+        for_stmt = ctx.for_stmt()
+        if for_stmt is not None:
+            return self.visit(for_stmt)
+
+        func_def = ctx.func_def()
+        if func_def is not None:
+            return self.visit(func_def)
+
+        block = ctx.block()
+        if block is not None:
+            return self.visit(block)
+
+        return None
 
     def visitVar_decl(self, ctx: MicelioParser.Var_declContext):
         names = [ident.getText() for ident in ctx.ID()]
@@ -272,7 +397,21 @@ class EvalVisitor(MicelioVisitor):
     def visitAssignment(self, ctx: MicelioParser.AssignmentContext):
         name = ctx.ID().getText()
         value = self.visit(ctx.expr())
-        self.env.assign(name, value)
+        cache_key = id(ctx)
+        target_env = self._assign_env_cache.get(cache_key)
+        if (
+            target_env is None
+            or not self._is_env_visible(target_env)
+            or name not in target_env.values
+        ):
+            target_env = self._resolve_env_for_name(name)
+            if target_env is None:
+                raise MicelioRuntimeError(f"Variable '{name}' no definida")
+            self._assign_env_cache[cache_key] = target_env
+
+        if name in target_env.constants:
+            raise MicelioRuntimeError(f"No se puede reasignar la constante '{name}'")
+        target_env.values[name] = value
         return value
 
     def visitReturn_stmt(self, ctx: MicelioParser.Return_stmtContext):
@@ -372,9 +511,15 @@ class EvalVisitor(MicelioVisitor):
 
     def visitWhile_stmt(self, ctx: MicelioParser.While_stmtContext):
         result = None
-        while self.visit(ctx.expr()):
+        cond_ctx = ctx.expr()
+        block_ctx = ctx.block()
+        needs_scope = self._block_needs_scope(block_ctx)
+        while self.visit(cond_ctx):
             try:
-                result = self.visit(ctx.block())
+                if needs_scope:
+                    result = self.visit(block_ctx)
+                else:
+                    result = self._exec_block_body_no_scope(block_ctx)
             except ContinueFlow:
                 continue
             except BreakFlow:
@@ -384,15 +529,26 @@ class EvalVisitor(MicelioVisitor):
     def visitFor_stmt(self, ctx: MicelioParser.For_stmtContext):
         var_name = ctx.ID().getText()
         result = None
+        block_ctx = ctx.block()
+        needs_scope = self._block_needs_scope(block_ctx)
 
         if ctx.EN() is not None:
             iterable = self.visit(ctx.expr(0))
             if not isinstance(iterable, (list, tuple, set, str, dict)):
                 raise MicelioRuntimeError("para ... en requiere un iterable")
+            target_env = self._resolve_env_for_name(var_name)
+            if target_env is None:
+                self.env.define(var_name, None)
+                target_env = self.env
+            if var_name in target_env.constants:
+                raise MicelioRuntimeError(f"No se puede reasignar la constante '{var_name}'")
             for value in iterable:
-                self._assign_or_define(var_name, value)
+                target_env.values[var_name] = value
                 try:
-                    result = self.visit(ctx.block())
+                    if needs_scope:
+                        result = self.visit(block_ctx)
+                    else:
+                        result = self._exec_block_body_no_scope(block_ctx)
                 except ContinueFlow:
                     continue
                 except BreakFlow:
@@ -408,19 +564,41 @@ class EvalVisitor(MicelioVisitor):
 
         self._assign_or_define(var_name, start)
 
-        def condition(cur):
-            return cur <= end if step > 0 else cur >= end
+        # Resolve once where the loop variable lives to avoid recursive assign lookup
+        # on every iteration in tight numeric loops.
+        target_env = self.env
+        while target_env is not None and var_name not in target_env.values:
+            target_env = target_env.parent
+        if target_env is None:
+            target_env = self.env
 
         current = start
-        while condition(current):
-            self.env.assign(var_name, current)
-            try:
-                result = self.visit(ctx.block())
-            except ContinueFlow:
-                pass
-            except BreakFlow:
-                break
-            current = current + step
+        if step > 0:
+            while current <= end:
+                target_env.values[var_name] = current
+                try:
+                    if needs_scope:
+                        result = self.visit(block_ctx)
+                    else:
+                        result = self._exec_block_body_no_scope(block_ctx)
+                except ContinueFlow:
+                    pass
+                except BreakFlow:
+                    break
+                current += step
+        else:
+            while current >= end:
+                target_env.values[var_name] = current
+                try:
+                    if needs_scope:
+                        result = self.visit(block_ctx)
+                    else:
+                        result = self._exec_block_body_no_scope(block_ctx)
+                except ContinueFlow:
+                    pass
+                except BreakFlow:
+                    break
+                current += step
         return result
 
     def visitFunc_def(self, ctx: MicelioParser.Func_defContext):
@@ -436,7 +614,8 @@ class EvalVisitor(MicelioVisitor):
         saved = self.env
         self.env = local
         try:
-            for st in ctx.statement():
+            statements = ctx.statement()
+            for st in statements:
                 result = self.visit(st)
             return result
         finally:
@@ -457,7 +636,19 @@ class EvalVisitor(MicelioVisitor):
         return None
 
     def visitIdExpr(self, ctx: MicelioParser.IdExprContext):
-        return self.env.get(ctx.ID().getText())
+        name = ctx.ID().getText()
+        cache_key = id(ctx)
+        target_env = self._id_env_cache.get(cache_key)
+        if (
+            target_env is None
+            or not self._is_env_visible(target_env)
+            or name not in target_env.values
+        ):
+            target_env = self._resolve_env_for_name(name)
+            if target_env is None:
+                raise MicelioRuntimeError(f"Variable '{name}' no definida")
+            self._id_env_cache[cache_key] = target_env
+        return target_env.values[name]
 
     def visitParenExpr(self, ctx: MicelioParser.ParenExprContext):
         return self.visit(ctx.expr())

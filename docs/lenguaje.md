@@ -11,7 +11,7 @@ Micelio es un lenguaje interpretado en espanol con enfoque didactico, soporte fu
 - Funciones: `funcion`, `regresa`
 - IO: `leer`, `imp`
 - Modulos: `importar "archivo.mice" como alias`
-- Operadores funcionales: `map`, `filter`, `reduce`, `|>`
+- Operadores funcionales: `map`, `filter`, `reduce`, `ordenar`, `|>`
 
 ## Tipos y colecciones
 

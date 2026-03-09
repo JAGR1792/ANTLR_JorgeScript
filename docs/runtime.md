@@ -34,7 +34,7 @@ Con soporte de scopes anidados (`parent`).
 
 ## Builtins relevantes
 
-- `map`, `filter`, `reduce`
+- `map`, `filter`, `reduce`, `ordenar`
 - Conversiones: `aNumero`, `aTexto`, `aBooleano`
 - Bases numericas: `aBinario`, `aOctal`, `aHexadecimal`, `aBase`, `desdeBase`, etc.
 

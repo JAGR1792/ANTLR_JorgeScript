@@ -51,6 +51,15 @@ def _syntax_hint(issue: SyntaxIssue, source_lines: list[str]) -> tuple[str, str]
     snippet = source_lines[issue.line - 1] if 1 <= issue.line <= len(source_lines) else ""
     msg = issue.message.lower()
 
+    if "mismatched input '\\n' expecting" in msg and "=" in snippet and snippet.strip().endswith("="):
+        return (
+            "La asignacion quedo incompleta: falta la expresion a la derecha de `=`.",
+            "Completa la linea con un valor o expresion. Ejemplos:\n"
+            "  a = 10\n"
+            "  a = [1, 2, 3]\n"
+            "  a = b + 1",
+        )
+
     if "mismatched input 'leer'" in msg and "." in snippet:
         return (
             "`leer` es una sentencia, no una expresion o metodo.",
@@ -86,7 +95,7 @@ def format_pedagogical_syntax_error(exc: PedagogicalSyntaxError) -> str:
     why, fix = _syntax_hint(first, exc.source_lines)
     snippet = _line_snippet(exc.source_lines, first.line, first.column)
     return (
-        "Error pedagogico (sintaxis)\n"
+        "Error de (sintaxis)\n"
         f"Que paso: {first.message}\n"
         f"Donde: linea {first.line}, columna {first.column}\n"
         f"{snippet}\n"
@@ -136,7 +145,7 @@ def format_pedagogical_runtime_error(exc: Exception) -> str:
     raw = str(exc)
     why, fix = _runtime_hint(raw.lower())
     return (
-        "Error pedagogico (ejecucion)\n"
+        "Error de (ejecucion)\n"
         f"Que paso: {raw}\n"
         f"Por que pasa: {why}\n"
         f"Como arreglarlo: {fix}"
@@ -149,6 +158,9 @@ _LEER_MULTI_RE = re.compile(
 )
 _ASSIGN_MULTI_RE = re.compile(
     rf"^(?P<indent>\s*)(?P<names>{_ID}(?:\s*,\s*{_ID})+)\s*=\s*(?P<expr>.+?)\s*(?P<trail>#.*)?$"
+)
+_COMPOUND_ASSIGN_RE = re.compile(
+    rf"^(?P<indent>\s*)(?P<name>{_ID})\s*(?P<op>\*\*=|\+=|-=|\*=|/=|%=)\s*(?P<expr>.+?)\s*(?P<trail>#.*)?$"
 )
 
 
@@ -180,6 +192,16 @@ def preprocess_source(code: str) -> str:
             expr = assign_match.group("expr").strip()
             trail = f" {assign_match.group('trail')}" if assign_match.group("trail") else ""
             out_lines.append(f'{indent}__asignar_multi("{names}", {expr}){trail}')
+            continue
+
+        compound_match = _COMPOUND_ASSIGN_RE.match(line)
+        if compound_match:
+            indent = compound_match.group("indent")
+            name = compound_match.group("name")
+            op = compound_match.group("op")[:-1]
+            expr = compound_match.group("expr").strip()
+            trail = f" {compound_match.group('trail')}" if compound_match.group("trail") else ""
+            out_lines.append(f"{indent}{name} = {name} {op} ({expr}){trail}")
             continue
 
         out_lines.append(line)
